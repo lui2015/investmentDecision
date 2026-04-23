@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--t-bg, #f8fafc);
+  color: var(--t-text, #1e293b);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* ====== Theme-aware utility classes ====== */
+.t-bg { background-color: var(--t-bg); }
+.t-bg2 { background-color: var(--t-bg-secondary); }
+.t-bg3 { background-color: var(--t-bg-tertiary); }
+.t-nav-bg { background-color: var(--t-nav-bg); }
+.t-text { color: var(--t-text); }
+.t-text2 { color: var(--t-text-secondary); }
+.t-muted { color: var(--t-text-muted); }
+.t-border { border-color: var(--t-border); }
+.t-accent { color: var(--t-accent); }
+.t-accent-bg { background-color: var(--t-accent); }
+.t-accent-bg-hover:hover { background-color: var(--t-accent-hover); }
+.t-accent-light { background-color: var(--t-accent-light); color: var(--t-accent-text); }
+.t-card {
+  background-color: var(--t-bg-secondary);
+  border: 1px solid var(--t-border);
+  border-radius: var(--t-radius);
+  box-shadow: var(--t-card-shadow);
+}
+.t-card-hover:hover { box-shadow: var(--t-card-shadow), 0 4px 12px rgba(0,0,0,0.08); }
+.t-input {
+  background-color: var(--t-input-bg);
+  border: 1px solid var(--t-input-border);
+  color: var(--t-text);
+  border-radius: 0.5rem;
+}
+.t-input:focus { outline: none; box-shadow: 0 0 0 2px var(--t-accent); border-color: var(--t-accent); }
+.t-gradient { background: linear-gradient(135deg, var(--t-gradient-from), var(--t-gradient-to)); }
+.t-nav-text { color: var(--t-nav-text); }
+.t-nav-active { background-color: var(--t-nav-active); color: #fff; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--t-border, #cbd5e1); border-radius: 3px; }
+
+/* Cyberpunk glow */
+[data-theme="cyberpunk"] .t-card { box-shadow: 0 0 15px rgba(244,63,94,0.12), inset 0 1px 0 rgba(167,139,250,0.1); }
+[data-theme="cyberpunk"] .t-accent-bg { box-shadow: 0 0 12px rgba(244,63,94,0.4); }
+[data-theme="cyberpunk"] .t-input:focus { box-shadow: 0 0 0 2px rgba(244,63,94,0.5), 0 0 12px rgba(244,63,94,0.2); }
+[data-theme="cyberpunk"] .glow-text { text-shadow: 0 0 10px rgba(244,63,94,0.6), 0 0 30px rgba(167,139,250,0.3); }
