@@ -47,24 +47,24 @@ export default function KnowledgePage() {
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-800">投资知识库</h2>
-        <p className="text-sm text-slate-500 mt-1">"我们读了很多东西……发现了更好的思维方式。" —— 芒格</p>
+        <h2 className="text-xl font-bold t-text">投资知识库</h2>
+        <p className="text-sm t-text2 mt-1">"我们读了很多东西……发现了更好的思维方式。" —— 芒格</p>
       </div>
       <div className="flex gap-2">
-        <button onClick={() => setTab('quotes')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'quotes' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>大师语录</button>
-        <button onClick={() => setTab('biases')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'biases' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>认知偏差</button>
+        <button onClick={() => setTab('quotes')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'quotes' ? 't-accent-bg text-white' : 't-bg2 t-text2 border t-border'}`}>大师语录</button>
+        <button onClick={() => setTab('biases')} className={`px-4 py-2 rounded-lg text-sm ${tab === 'biases' ? 't-accent-bg text-white' : 't-bg2 t-text2 border t-border'}`}>认知偏差</button>
       </div>
       {tab === 'quotes' && (
         <>
           <div className="flex flex-wrap gap-1.5">
-            <button onClick={() => setFilter('all')} className={`px-2.5 py-1 rounded-full text-xs ${filter === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>全部</button>
-            {authors.map(a => <button key={a} onClick={() => setFilter(a)} className={`px-2.5 py-1 rounded-full text-xs ${filter === a ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{a}</button>)}
+            <button onClick={() => setFilter('all')} className={`px-2.5 py-1 rounded-full text-xs ${filter === 'all' ? 'bg-slate-800 text-white' : 't-bg2 t-text2 border t-border'}`}>全部</button>
+            {authors.map(a => <button key={a} onClick={() => setFilter(a)} className={`px-2.5 py-1 rounded-full text-xs ${filter === a ? 'bg-slate-800 text-white' : 't-bg2 t-text2 border t-border'}`}>{a}</button>)}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filtered.map((q, i) => (
-              <div key={i} className="bg-white rounded-xl p-4 border border-slate-100">
-                <p className="text-sm text-slate-700 italic leading-relaxed">"{q.text}"</p>
-                <div className="flex justify-between mt-2"><span className="text-xs text-blue-600">{q.author}</span><span className="text-xs text-slate-400">{q.cat}</span></div>
+              <div key={i} className="t-bg2 rounded-xl p-4 border t-border">
+                <p className="text-sm t-text italic leading-relaxed">"{q.text}"</p>
+                <div className="flex justify-between mt-2"><span className="text-xs t-accent">{q.author}</span><span className="text-xs t-muted">{q.cat}</span></div>
               </div>
             ))}
           </div>
@@ -72,14 +72,14 @@ export default function KnowledgePage() {
       )}
       {tab === 'biases' && (
         <div className="space-y-3">
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm t-warning">
             💡 了解这些认知偏差是第一步。真正困难的是在实际投资中识别并克服它们——这正是决策表的价值。
           </div>
           {biases.map((b, i) => (
-            <div key={i} className="bg-white rounded-xl p-4 border border-slate-100">
-              <h3 className="font-semibold text-slate-800">{b.name}</h3>
-              <p className="text-sm text-slate-600 mt-1">{b.desc}</p>
-              <div className="mt-2 p-2.5 bg-green-50 rounded-lg text-sm text-green-700"><strong>应对：</strong>{b.remedy}</div>
+            <div key={i} className="t-bg2 rounded-xl p-4 border t-border">
+              <h3 className="font-semibold t-text">{b.name}</h3>
+              <p className="text-sm t-text2 mt-1">{b.desc}</p>
+              <div className="mt-2 p-2.5 bg-green-50 rounded-lg text-sm t-success"><strong>应对：</strong>{b.remedy}</div>
             </div>
           ))}
         </div>

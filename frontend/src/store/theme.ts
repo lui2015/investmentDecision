@@ -107,7 +107,7 @@ interface ThemeStore {
 export const useThemeStore = create<ThemeStore>()(
   persist(
     (set) => ({
-      themeId: 'default',
+      themeId: 'cyberpunk',
       setTheme: (id) => set({ themeId: id }),
     }),
     { name: 'ids-theme' }

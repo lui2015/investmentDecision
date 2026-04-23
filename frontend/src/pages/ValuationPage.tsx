@@ -62,32 +62,32 @@ export default function ValuationPage() {
   return (
     <div className="max-w-3xl space-y-6">
       <div>
-        <h2 className="text-xl font-bold text-slate-800">估值计算器</h2>
-        <p className="text-sm text-slate-500 mt-1">"价格是你付出的，价值是你得到的。" —— 巴菲特</p>
+        <h2 className="text-xl font-bold t-text">估值计算器</h2>
+        <p className="text-sm t-text2 mt-1">"价格是你付出的，价值是你得到的。" —— 巴菲特</p>
       </div>
       <div className="flex flex-wrap gap-2">
         {methods.map(m => (
           <button key={m.key} onClick={() => { setMethod(m.key); setResult(null); setParams({}); }}
-            className={`px-3 py-2 rounded-lg text-sm ${method === m.key ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{m.name}</button>
+            className={`px-3 py-2 rounded-lg text-sm ${method === m.key ? 't-accent-bg text-white' : 't-bg2 t-text2 border t-border'}`}>{m.name}</button>
         ))}
       </div>
-      <div className="bg-white rounded-xl p-5 border border-slate-100">
-        <p className="text-sm text-slate-500 mb-4">{info.desc}</p>
+      <div className="t-bg2 rounded-xl p-5 border t-border">
+        <p className="text-sm t-text2 mb-4">{info.desc}</p>
         <div className="grid grid-cols-2 gap-3">
           {info.fields.map(f => (
             <div key={f.k}>
-              <label className="text-xs font-medium text-slate-700">{f.l}</label>
+              <label className="text-xs font-medium t-text">{f.l}</label>
               <input type="number" value={params[f.k] ?? ''} onChange={e => setParams({ ...params, [f.k]: e.target.value })}
-                placeholder={String(f.d || '')} className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                placeholder={String(f.d || '')} className="w-full px-3 py-2 border t-border rounded-lg text-sm mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           ))}
         </div>
-        <button onClick={handleCalc} className="mt-4 px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">计算</button>
+        <button onClick={handleCalc} className="mt-4 px-5 py-2 t-accent-bg text-white rounded-lg text-sm font-medium t-accent-bg-hover">计算</button>
       </div>
       {result && (
         <div className={`p-5 rounded-xl border ${result.margin > 30 ? 'bg-green-50 border-green-200' : result.margin > 10 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
-          <div className="text-sm font-medium text-slate-800">{result.detail}</div>
-          <p className="text-xs text-slate-500 mt-2">⚠️ 估值仅供参考，请结合定性分析综合判断。"模糊的正确好过精确的错误。" —— 巴菲特</p>
+          <div className="text-sm font-medium t-text">{result.detail}</div>
+          <p className="text-xs t-text2 mt-2">⚠️ 估值仅供参考，请结合定性分析综合判断。"模糊的正确好过精确的错误。" —— 巴菲特</p>
         </div>
       )}
     </div>
