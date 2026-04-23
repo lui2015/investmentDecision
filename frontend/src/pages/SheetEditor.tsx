@@ -1,9 +1,17 @@
 import { useParams, Link } from 'react-router-dom';
 import { useSheetStore } from '../store';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AssetTypeIcon, StatusLabel, StatusColor, type DecisionStatus } from '../types';
 import { STEPS, BASIC_FIELDS, DISCIPLINE, QUICK_QUESTIONS, FUTURES_RISK_CONFIRMS, SCORE_THRESHOLDS } from '../data/templates';
 import { useThemeStore } from '../store/theme';
+import { fetchStockQuote } from '../services/stockApi';
+
+// 股票自动填充状态
+type AutoFillStatus =
+  | { kind: 'idle' }
+  | { kind: 'loading'; code: string }
+  | { kind: 'success'; code: string; name: string; at: number }
+  | { kind: 'error'; code: string; message: string };
 
 export default function SheetEditor() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +28,56 @@ export default function SheetEditor() {
     updateSheet(sheet.id, updates);
     recalcScore(sheet.id);
   }, [sheet?.id, updateSheet, recalcScore]);
+
+  // ===== 股票代码 → 自动填充基础信息 =====
+  const [autoFill, setAutoFill] = useState<AutoFillStatus>({ kind: 'idle' });
+  const lastFetchedCodeRef = useRef<string>('');
+  const debounceTimerRef = useRef<number | undefined>(undefined);
+
+  const runAutoFill = useCallback(async (code: string, opts: { force?: boolean } = {}) => {
+    if (!sheet) return;
+    const trimmed = code.trim();
+    if (!trimmed) return;
+    // 校验：支持 6 位 A 股 / 5 位港股
+    if (!/^(\d{6}|\d{5})$/.test(trimmed)) return;
+    if (!opts.force && lastFetchedCodeRef.current === trimmed) return;
+
+    lastFetchedCodeRef.current = trimmed;
+    setAutoFill({ kind: 'loading', code: trimmed });
+    try {
+      const q = await fetchStockQuote(trimmed);
+      // 仅填充"用户没填过"的字段，避免覆盖用户手动输入；force 时则覆盖行情相关字段
+      const info = { ...sheet.basicInfo };
+      const setIfEmpty = (key: string, value: string) => {
+        if (!info[key] || opts.force) info[key] = value;
+      };
+      setIfEmpty('companyName', q.name);
+      if (q.industry) setIfEmpty('industry', q.industry);
+      if (q.price > 0) setIfEmpty('currentPrice', q.price.toFixed(2));
+      if (q.marketCap > 0) setIfEmpty('marketCap', (q.marketCap / 1e8).toFixed(2)); // 元 → 亿元
+      // stockCode 规范化为 6 位纯数字
+      info.stockCode = trimmed;
+      save({ basicInfo: info });
+      setAutoFill({ kind: 'success', code: trimmed, name: q.name, at: Date.now() });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '查询失败';
+      setAutoFill({ kind: 'error', code: trimmed, message });
+    }
+  }, [sheet, save]);
+
+  // 监听股票代码变化，800ms 防抖后自动拉取
+  const stockCode = sheet?.assetType === 'stock' ? (sheet.basicInfo.stockCode || '') : '';
+  useEffect(() => {
+    if (!sheet || sheet.assetType !== 'stock') return;
+    if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+    if (!stockCode) return;
+    debounceTimerRef.current = window.setTimeout(() => {
+      runAutoFill(stockCode);
+    }, 800);
+    return () => {
+      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+    };
+  }, [stockCode, sheet?.id, sheet?.assetType, runAutoFill]);
 
   if (!sheet) return <div className="p-8 text-center t-text2">决策表不存在 <Link to="/sheets" className="t-accent underline ml-2">返回列表</Link></div>;
 
@@ -50,26 +108,62 @@ export default function SheetEditor() {
 
   const renderBasicInfo = () => {
     const fields = BASIC_FIELDS[sheet.assetType];
+    const isStock = sheet.assetType === 'stock';
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {fields.map(f => (
-          <div key={f.key} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
-            <label className="block text-sm font-medium t-text mb-1">{f.label}{f.required && <span className="t-danger ml-0.5">*</span>}</label>
-            {f.type === 'textarea' ? (
-              <textarea value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
-                placeholder={f.placeholder} className="t-input w-full resize-none" rows={3} />
-            ) : f.type === 'select' ? (
-              <select value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
-                className="t-input w-full">
-                <option value="">请选择</option>
-                {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            ) : (
-              <input type={f.type} value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
-                placeholder={f.placeholder} className="t-input w-full" />
+      <div className="space-y-4">
+        {isStock && (
+          <div className="p-3 rounded-xl border t-border t-bg2 flex items-start gap-3 text-xs">
+            <span className="text-base leading-none mt-0.5">🤖</span>
+            <div className="flex-1 space-y-1">
+              <div className="t-text font-medium">智能填充已开启</div>
+              <div className="t-text2">
+                填写 6 位 A 股代码（或 5 位港股代码）后，将自动拉取公司名称、所属行业、当前股价、市值等信息，你只需专注于评分与判断。
+              </div>
+              {autoFill.kind === 'loading' && (
+                <div className="t-accent flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  正在查询 {autoFill.code} 的行情…
+                </div>
+              )}
+              {autoFill.kind === 'success' && (
+                <div className="t-success">✓ 已自动填充：{autoFill.name}（{autoFill.code}）</div>
+              )}
+              {autoFill.kind === 'error' && (
+                <div className="t-danger">✗ {autoFill.message}（{autoFill.code}）</div>
+              )}
+            </div>
+            {sheet.basicInfo.stockCode && (
+              <button
+                type="button"
+                onClick={() => runAutoFill(sheet.basicInfo.stockCode || '', { force: true })}
+                disabled={autoFill.kind === 'loading'}
+                className="px-2.5 py-1 rounded-md text-xs t-accent-bg text-white t-accent-bg-hover disabled:opacity-50 flex-shrink-0"
+              >
+                {autoFill.kind === 'loading' ? '刷新中…' : '刷新行情'}
+              </button>
             )}
           </div>
-        ))}
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {fields.map(f => (
+            <div key={f.key} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
+              <label className="block text-sm font-medium t-text mb-1">{f.label}{f.required && <span className="t-danger ml-0.5">*</span>}</label>
+              {f.type === 'textarea' ? (
+                <textarea value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
+                  placeholder={f.placeholder} className="t-input w-full resize-none" rows={3} />
+              ) : f.type === 'select' ? (
+                <select value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
+                  className="t-input w-full">
+                  <option value="">请选择</option>
+                  {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              ) : (
+                <input type={f.type} value={sheet.basicInfo[f.key] || ''} onChange={e => save({ basicInfo: { ...sheet.basicInfo, [f.key]: e.target.value } })}
+                  placeholder={f.placeholder} className="t-input w-full" />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     );
   };
