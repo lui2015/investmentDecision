@@ -5,12 +5,10 @@ import SheetListPage from './pages/SheetListPage';
 import SheetEditor from './pages/SheetEditor';
 import ValuationPage from './pages/ValuationPage';
 import KnowledgePage from './pages/KnowledgePage';
-import WatchlistPage from './pages/WatchlistPage';
 import { useThemeStore, applyTheme, themes } from './store/theme';
 
 const navItems = [
   { path: '/', label: '总览', icon: '📊' },
-  { path: '/watchlist', label: '我的自选', icon: '⭐' },
   { path: '/sheets', label: '决策表', icon: '📋' },
   { path: '/valuation', label: '估值计算', icon: '🧮' },
   { path: '/knowledge', label: '知识库', icon: '📚' },
@@ -103,7 +101,6 @@ export default function App() {
       <main className={isEditor ? '' : 'max-w-7xl mx-auto px-4 py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-            <Route path="/watchlist" element={<WatchlistPage />} />
             <Route path="/sheets" element={<SheetListPage />} />
           <Route path="/sheet/:id" element={<SheetEditor />} />
           <Route path="/valuation" element={<ValuationPage />} />
