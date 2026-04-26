@@ -22,6 +22,11 @@
 - Vite (构建工具)
 - React Router (路由)
 
+## 线上访问
+
+- 投资决策系统：**https://www.luliming.xyz/investmentDecision/**
+- 全站 HTTPS，HTTP 自动 `301` 跳转
+
 ## 快速开始
 
 ```bash

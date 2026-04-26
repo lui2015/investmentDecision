@@ -1,14 +1,22 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useSheetStore } from '../store';
 import { AssetTypeLabel, AssetTypeIcon, StatusLabel, StatusColor } from '../types';
 import { SCORE_THRESHOLDS } from '../data/templates';
 import { useThemeStore } from '../store/theme';
+import { getDailyQuote } from '../data/quotes';
+
+const QUOTES_MORE_URL = 'http://www.luliming.xyz/investmentQuotes';
 
 export default function HomePage() {
   const sheets = useSheetStore(s => s.sheets);
   const navigate = useNavigate();
   const { themeId } = useThemeStore();
   const isCyber = themeId === 'cyberpunk';
+
+  // 每日大师投资名言（按日期稳定；点"换一条"会在本地切换索引）
+  const [quoteOffset, setQuoteOffset] = useState(0);
+  const quote = getDailyQuote(quoteOffset);
 
   const stats = {
     total: sheets.length,
@@ -24,13 +32,69 @@ export default function HomePage() {
       <div className={`t-gradient rounded-2xl p-8 relative overflow-hidden ${isCyber ? 'glow-border' : ''}`}>
         {isCyber && <div className="absolute inset-0 bg-gradient-to-r from-pink-500/5 via-purple-500/5 to-transparent" />}
         <div className="relative z-10">
-          <h2 className={`text-2xl font-bold text-white ${isCyber ? 'glow-text' : ''}`}>
+          <h2 className={`text-2xl font-bold text-white text-center ${isCyber ? 'glow-text' : ''}`}>
             {isCyber ? '⚡ ' : '💹 '}投资决策系统
           </h2>
-          <p className="text-white/60 mt-3 text-sm leading-relaxed max-w-xl">
-            把"拍脑袋"变成"填决策表"，把"我觉得"变成"我验证过"。<br/>
-            先过滤，再评分；先看风险，再看收益；先定计划，再谈买卖。
+          <p className="text-white/60 mt-3 text-sm leading-relaxed max-w-2xl mx-auto text-center">
+            把"拍脑袋"变成"填决策表"，把"我觉得"变成"我验证过"。先过滤，再评分；先看风险，再看收益；先定计划，再谈买卖。
           </p>
+
+          {/* 每日大师投资名言 */}
+          <div className="mt-6 relative rounded-xl bg-white/[0.08] backdrop-blur-sm border border-white/15 px-6 pt-9 pb-5 max-w-2xl mx-auto overflow-hidden group hover:bg-white/[0.1] transition-colors">
+            {/* 顶部小标签 */}
+            <div className="absolute top-3 left-4 right-4 flex items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/10 text-[10px] uppercase tracking-[0.15em] text-white/70">
+                <span>📖</span>
+                <span>每日大师名言</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setQuoteOffset(o => o + 1)}
+                  className="px-2 py-1 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                  title="换一条"
+                >
+                  ↻ 换一条
+                </button>
+                <a
+                  href={QUOTES_MORE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 rounded-md text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                  title="查看更多名言"
+                >
+                  更多 →
+                </a>
+              </div>
+            </div>
+
+            {/* 名言正文（前后成对装饰引号） */}
+            <blockquote className="text-white text-[15px] leading-[1.75] font-medium tracking-wide text-center">
+              <span
+                className="font-serif text-white/30 text-[26px] leading-none mr-1 align-[-4px] select-none"
+                aria-hidden
+              >
+                &ldquo;
+              </span>
+              {quote.text}
+              <span
+                className="font-serif text-white/30 text-[26px] leading-none ml-1 align-[-4px] select-none"
+                aria-hidden
+              >
+                &rdquo;
+              </span>
+            </blockquote>
+
+            {/* 分隔线 + 作者（居中） */}
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <span className="h-px w-8 bg-white/25" />
+              <span className="text-xs text-white/80 font-medium">{quote.author}</span>
+              {quote.title && (
+                <span className="text-[11px] text-white/45">· {quote.title}</span>
+              )}
+              <span className="h-px w-8 bg-white/25" />
+            </div>
+          </div>
         </div>
       </div>
 
