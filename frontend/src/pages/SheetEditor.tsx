@@ -144,7 +144,7 @@ export default function SheetEditor() {
             )}
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           {fields.map(f => (
             <div key={f.key} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
               <label className="block text-sm font-medium t-text mb-1">{f.label}{f.required && <span className="t-danger ml-0.5">*</span>}</label>
@@ -264,8 +264,8 @@ export default function SheetEditor() {
       {isFutures ? (
         <div className="space-y-3">
           {[{ k: 'entryPrice', l: '计划入场价' }, { k: 'stopLoss', l: '止损价 (必填)' }, { k: 'target', l: '第一目标位' }, { k: 'lots', l: '计划手数' }, { k: 'totalCapital', l: '总资金' }].map(f => (
-            <div key={f.k} className="flex items-center gap-3">
-              <label className="text-sm t-text w-32 flex-shrink-0">{f.l}</label>
+            <div key={f.k} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+              <label className="text-sm t-text w-full sm:w-32 flex-shrink-0">{f.l}</label>
               <input type="number" value={(sheet.riskReward as unknown as Record<string, number>)[f.k] || ''} onChange={e => save({ riskReward: { ...sheet.riskReward, [f.k]: parseFloat(e.target.value) || 0 } })}
                 className="t-input w-40" />
             </div>
@@ -281,7 +281,7 @@ export default function SheetEditor() {
             const maxLossPct = rr.totalCapital > 0 ? (maxLoss / rr.totalCapital * 100) : 0;
             return (
               <div className={`p-4 rounded-xl border ${ratio >= 2 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 text-center">
                   <div><div className="text-xs t-text2">风险收益比</div><div className={`text-2xl font-bold ${ratio >= 2 ? 't-success' : 't-danger'}`}>{ratio.toFixed(2)}:1</div></div>
                   <div><div className="text-xs t-text2">单笔最大亏损</div><div className="text-lg font-bold t-text">¥{maxLoss.toFixed(0)}</div></div>
                   <div><div className="text-xs t-text2">占总资金</div><div className={`text-lg font-bold ${maxLossPct <= 2 ? 't-success' : 't-danger'}`}>{maxLossPct.toFixed(1)}%</div></div>
@@ -303,8 +303,8 @@ export default function SheetEditor() {
             { k: 'relative', l: '当前价格相对合理价值', p: '低估 / 合理 / 高估' },
             { k: 'margin', l: '安全边际是否足够', p: '是 / 否' },
           ].map(f => (
-            <div key={f.k} className="flex items-center gap-3">
-              <label className="text-sm t-text w-40 flex-shrink-0">{f.l}</label>
+            <div key={f.k} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+              <label className="text-sm t-text w-full sm:w-40 flex-shrink-0">{f.l}</label>
               <input value={sheet.valuationFields[f.k] || ''} onChange={e => save({ valuationFields: { ...sheet.valuationFields, [f.k]: e.target.value } })}
                 placeholder={f.p} className="t-input flex-1" />
             </div>
@@ -332,7 +332,7 @@ export default function SheetEditor() {
       {sheet.risks.map((risk, i) => (
         <div key={risk.id} className="p-3 t-bg2 rounded-lg border t-border">
           <div className="text-sm font-medium t-text mb-2">{risk.type}</div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <input value={risk.detail} onChange={e => { const rs = [...sheet.risks]; rs[i] = { ...rs[i], detail: e.target.value }; save({ risks: rs }); }}
               placeholder="具体风险" className="t-input text-xs md:col-span-1" />
             <select value={risk.probability} onChange={e => { const rs = [...sheet.risks]; rs[i] = { ...rs[i], probability: e.target.value as typeof risk.probability }; save({ risks: rs }); }}
@@ -359,7 +359,7 @@ export default function SheetEditor() {
     <div className="space-y-4">
       <p className="text-sm t-text2">只允许写3-5条核心逻辑，越短越好。避免把愿望当逻辑。</p>
       {sheet.logicPoints.map((p, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2">
           <span className="text-sm font-bold t-muted w-6">{i + 1}.</span>
           <input value={p} onChange={e => { const pts = [...sheet.logicPoints]; pts[i] = e.target.value; save({ logicPoints: pts }); }}
             placeholder={`核心逻辑 ${i + 1}`} maxLength={150} className="t-input flex-1" />
@@ -413,8 +413,8 @@ export default function SheetEditor() {
       <div className="space-y-3">
         <p className="text-sm t-text2 font-medium">没有计划，不许下单。</p>
         {fields.map(f => (
-          <div key={f.k} className="flex items-center gap-3">
-            <label className="text-sm t-text w-44 flex-shrink-0">{f.l}</label>
+          <div key={f.k} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+            <label className="text-sm t-text w-full sm:w-44 flex-shrink-0">{f.l}</label>
             <input value={sheet.tradePlan[f.k] || ''} onChange={e => save({ tradePlan: { ...sheet.tradePlan, [f.k]: e.target.value } })}
               placeholder={f.p} className="t-input flex-1" />
           </div>
@@ -482,17 +482,17 @@ export default function SheetEditor() {
       {sheet.trackingRecords.length === 0 && <p className="text-sm t-muted">暂无跟踪记录</p>}
       {sheet.trackingRecords.map((rec, i) => (
         <div key={rec.id} className="p-3 t-bg2 rounded-lg border t-border space-y-2">
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 sm:flex gap-2">
             <input type="date" value={rec.date} onChange={e => { const rs = [...sheet.trackingRecords]; rs[i] = { ...rs[i], date: e.target.value }; save({ trackingRecords: rs }); }}
               className="t-input text-xs" />
-            <input value={rec.event} onChange={e => { const rs = [...sheet.trackingRecords]; rs[i] = { ...rs[i], event: e.target.value }; save({ trackingRecords: rs }); }}
-              placeholder="发生了什么" className="flex-1 px-2 py-1 border t-border rounded text-xs" />
             <select value={rec.affectsLogic === null ? '' : rec.affectsLogic ? 'yes' : 'no'}
               onChange={e => { const rs = [...sheet.trackingRecords]; rs[i] = { ...rs[i], affectsLogic: e.target.value === 'yes' }; save({ trackingRecords: rs }); }}
               className="t-input text-xs"><option value="">影响逻辑?</option><option value="yes">是</option><option value="no">否</option></select>
+            <input value={rec.event} onChange={e => { const rs = [...sheet.trackingRecords]; rs[i] = { ...rs[i], event: e.target.value }; save({ trackingRecords: rs }); }}
+              placeholder="发生了什么" className="col-span-2 sm:col-span-1 sm:flex-1 t-input text-xs" />
             <input value={rec.action} onChange={e => { const rs = [...sheet.trackingRecords]; rs[i] = { ...rs[i], action: e.target.value }; save({ trackingRecords: rs }); }}
-              placeholder="我的动作" className="t-input w-28 text-xs" />
-            <button onClick={() => save({ trackingRecords: sheet.trackingRecords.filter((_, j) => j !== i) })} className="t-danger hover:t-danger text-xs">✕</button>
+              placeholder="我的动作" className="t-input text-xs" />
+            <button onClick={() => save({ trackingRecords: sheet.trackingRecords.filter((_, j) => j !== i) })} className="t-danger hover:t-danger text-xs px-2">✕</button>
           </div>
         </div>
       ))}
@@ -549,46 +549,46 @@ export default function SheetEditor() {
     <div className="min-h-screen t-bg">
       {/* Top bar */}
       <div className="sticky top-0 z-20 t-nav-bg shadow-md">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-12">
-            <div className="flex items-center gap-3">
-              <Link to="/sheets" className="text-xs t-nav-text opacity-70 hover:opacity-100">← 返回</Link>
-              <div className="w-px h-5 t-bg2/20" />
-              <span className="text-base">{AssetTypeIcon[sheet.assetType]}</span>
-              <span className="text-sm font-semibold t-nav-text truncate max-w-48">{name}</span>
-              <span className={`text-xs px-1.5 py-0.5 rounded ${StatusColor[sheet.status]}`}>{StatusLabel[sheet.status]}</span>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between h-10 sm:h-12">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <Link to="/sheets" className="text-xs t-nav-text opacity-70 hover:opacity-100 flex-shrink-0">← 返回</Link>
+              <div className="w-px h-4 bg-white/20 hidden sm:block" />
+              <span className="text-sm sm:text-base flex-shrink-0">{AssetTypeIcon[sheet.assetType]}</span>
+              <span className="text-xs sm:text-sm font-semibold t-nav-text truncate">{name}</span>
+              <span className={`text-[10px] sm:text-xs px-1 sm:px-1.5 py-0.5 rounded flex-shrink-0 ${StatusColor[sheet.status]}`}>{StatusLabel[sheet.status]}</span>
             </div>
             {sheet.totalScore > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs t-nav-text opacity-60">总分</span>
-                <span className={`text-lg font-bold ${sheet.totalScore >= thresholds.high ? 'text-green-400' : sheet.totalScore >= thresholds.mid ? 'text-blue-400' : 't-danger'}`}>
-                  {sheet.totalScore}<span className="text-xs opacity-60">/100</span>
+              <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                <span className={`text-base sm:text-lg font-bold ${sheet.totalScore >= thresholds.high ? 'text-green-400' : sheet.totalScore >= thresholds.mid ? 'text-blue-400' : 't-danger'}`}>
+                  {sheet.totalScore}<span className="text-[10px] sm:text-xs opacity-60">/100</span>
                 </span>
               </div>
             )}
           </div>
         </div>
-        {/* Step tabs - horizontally scrollable */}
+        {/* Step tabs */}
         <div className="border-t border-white/10">
-          <div className="max-w-7xl mx-auto px-4">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4">
             <div className="flex overflow-x-auto no-scrollbar">
               {steps.map((s, i) => {
                 const isActive = i === step;
                 const isFuturesLocked = isFutures && i > 0 && !sheet.futuresRiskConfirm.every(Boolean);
                 return (
                   <button key={i} onClick={() => !isFuturesLocked && goStep(i)} disabled={isFuturesLocked}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-xs border-b-2 transition-all ${
+                    className={`flex-shrink-0 flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-2.5 text-[10px] sm:text-xs border-b-2 transition-all ${
                       isActive ? 'border-current t-nav-text font-semibold opacity-100' :
                       isFuturesLocked ? 'border-transparent t-nav-text opacity-20 cursor-not-allowed' :
                       'border-transparent t-nav-text opacity-50 hover:opacity-80'
                     }`}
                     style={isActive ? { borderColor: 'var(--t-nav-active)' } : {}}>
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] flex-shrink-0 ${
-                      isActive ? 't-nav-active text-white' : 't-bg2/10'
+                    <span className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[8px] sm:text-[10px] flex-shrink-0 ${
+                      isActive ? 't-nav-active text-white' : 'bg-white/10'
                     }`}>
                       {isFutures && i === 0 ? '⚠' : isFutures ? i : i + 1}
                     </span>
-                    {s}
+                    <span className="hidden sm:inline">{s}</span>
+                    <span className="sm:hidden">{s.length > 4 ? s.slice(0, 3) + '..' : s}</span>
                   </button>
                 );
               })}
@@ -598,25 +598,25 @@ export default function SheetEditor() {
       </div>
 
       {/* Main content */}
-      <div className="max-w-3xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold t-text">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+        <div className="flex items-center justify-between mb-3 sm:mb-5">
+          <h2 className="text-base sm:text-lg font-bold t-text">
             {isFutures && step === 0 ? '⚠️ ' : ''}{steps[step]}
           </h2>
-          <span className="text-xs t-muted">板块 {step + 1}/{steps.length}</span>
+          <span className="text-[10px] sm:text-xs t-muted">{step + 1}/{steps.length}</span>
         </div>
         {getRenderer(step)()}
-        <div className="flex justify-between mt-8 pt-4" style={{ borderTop: '1px solid var(--t-border)' }}>
+        <div className="flex justify-between mt-6 sm:mt-8 pt-3 sm:pt-4" style={{ borderTop: '1px solid var(--t-border)' }}>
           <button onClick={() => goStep(Math.max(0, step - 1))} disabled={step === 0}
-            className="px-4 py-2 text-sm t-text2 rounded-lg disabled:opacity-30 hover:t-bg3">← 上一步</button>
+            className="px-3 sm:px-4 py-2 text-xs sm:text-sm t-text2 rounded-lg disabled:opacity-30 hover:t-bg3">← 上一步</button>
           {step < steps.length - 1 ? (
             <button onClick={() => goStep(step + 1)}
               disabled={isFutures && step === 0 && !sheet.futuresRiskConfirm.every(Boolean)}
-              className="px-4 py-2 t-accent-bg text-white rounded-lg text-sm font-medium t-accent-bg-hover disabled:opacity-30">
+              className="px-3 sm:px-4 py-2 t-accent-bg text-white rounded-lg text-xs sm:text-sm font-medium t-accent-bg-hover disabled:opacity-30">
               下一步 →
             </button>
           ) : (
-            <Link to="/sheets" className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700">完成 ✓</Link>
+            <Link to="/sheets" className="px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-green-700">完成 ✓</Link>
           )}
         </div>
       </div>

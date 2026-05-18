@@ -19,11 +19,15 @@ export default function App() {
   const isEditor = location.pathname.startsWith('/sheet/');
   const { themeId, setTheme } = useThemeStore();
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(themeId);
     document.documentElement.setAttribute('data-theme', themeId);
   }, [themeId]);
+
+  // 路由变化时关闭菜单
+  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
   const currentTheme = themes.find(t => t.id === themeId)!;
 
@@ -32,76 +36,91 @@ export default function App() {
       {/* Top Navigation */}
       {!isEditor && (
         <header className="sticky top-0 z-30 t-nav-bg shadow-lg">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-between h-14">
-              {/* Logo + Nav */}
-              <div className="flex items-center gap-6">
-                <h1 className={`text-base font-bold t-nav-text ${themeId === 'cyberpunk' ? 'glow-text' : ''}`}>
-                  💹 投资决策系统
-                </h1>
-                <nav className="flex items-center gap-1">
-                  {navItems.map(item => (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      end={item.path === '/'}
-                      className={({ isActive }) =>
-                        `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
-                          isActive ? 't-nav-active font-medium' : 't-nav-text opacity-80 hover:opacity-100 hover:bg-white/10'
-                        }`
-                      }
-                    >
-                      <span>{item.icon}</span>
-                      <span>{item.label}</span>
-                    </NavLink>
-                  ))}
-                </nav>
-              </div>
+          <div className="max-w-7xl mx-auto px-3 sm:px-4">
+            <div className="flex items-center justify-between h-12 sm:h-14">
+              {/* Logo */}
+              <h1 className={`text-sm sm:text-base font-bold t-nav-text flex-shrink-0 ${themeId === 'cyberpunk' ? 'glow-text' : ''}`}>
+                💹 <span className="hidden xs:inline">投资决策系统</span><span className="xs:hidden">决策系统</span>
+              </h1>
 
-              {/* Right: Theme Switcher */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowThemePicker(!showThemePicker)}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg t-nav-text opacity-80 hover:opacity-100 hover:bg-white/10 text-sm transition-all"
-                >
-                  <span>{currentTheme.emoji}</span>
-                  <span className="hidden sm:inline">{currentTheme.name}</span>
-                  <span className="text-xs">▼</span>
+              {/* Desktop Nav */}
+              <nav className="hidden md:flex items-center gap-1">
+                {navItems.map(item => (
+                  <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                    className={({ isActive }) =>
+                      `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all ${
+                        isActive ? 't-nav-active font-medium' : 't-nav-text opacity-80 hover:opacity-100 hover:bg-white/10'
+                      }`}>
+                    <span>{item.icon}</span><span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </nav>
+
+              <div className="flex items-center gap-1">
+                {/* Theme Switcher */}
+                <div className="relative">
+                  <button onClick={() => setShowThemePicker(!showThemePicker)}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg t-nav-text opacity-80 hover:opacity-100 hover:bg-white/10 text-sm transition-all">
+                    <span>{currentTheme.emoji}</span>
+                    <span className="hidden sm:inline text-xs">{currentTheme.name}</span>
+                    <span className="text-[10px]">▼</span>
+                  </button>
+                  {showThemePicker && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowThemePicker(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-50 t-card p-2 min-w-44 animate-fade-in">
+                        <div className="text-xs t-muted px-2 py-1 mb-1">选择主题</div>
+                        {themes.map(t => (
+                          <button key={t.id} onClick={() => { setTheme(t.id); setShowThemePicker(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all ${themeId === t.id ? 't-accent-light font-medium' : ''}`}
+                            style={themeId === t.id ? {} : { color: 'var(--t-text)' }}>
+                            <span>{t.emoji}</span><span>{t.name}</span>
+                            {themeId === t.id && <span className="ml-auto text-xs t-accent">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Mobile hamburger */}
+                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="md:hidden p-2 rounded-lg t-nav-text opacity-80 hover:opacity-100 hover:bg-white/10">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {mobileMenuOpen
+                      ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    }
+                  </svg>
                 </button>
-
-                {showThemePicker && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowThemePicker(false)} />
-                    <div className="absolute right-0 top-full mt-2 z-50 t-card p-2 min-w-48 animate-in">
-                      <div className="text-xs t-muted px-2 py-1 mb-1">选择主题</div>
-                      {themes.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => { setTheme(t.id); setShowThemePicker(false); }}
-                          className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all ${
-                            themeId === t.id ? 't-accent-light font-medium' : 'hover:t-bg3'
-                          }`}
-                          style={themeId === t.id ? {} : { color: 'var(--t-text)' }}
-                        >
-                          <span className="text-lg">{t.emoji}</span>
-                          <span>{t.name}</span>
-                          {themeId === t.id && <span className="ml-auto text-xs t-accent">✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
+
+          {/* Mobile Nav Dropdown */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-white/10 animate-fade-in">
+              <div className="px-3 py-2 space-y-1">
+                {navItems.map(item => (
+                  <NavLink key={item.path} to={item.path} end={item.path === '/'}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-all ${
+                        isActive ? 't-nav-active font-medium' : 't-nav-text opacity-80'
+                      }`}>
+                    <span>{item.icon}</span><span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
         </header>
       )}
 
       {/* Main Content */}
-      <main className={isEditor ? '' : 'max-w-7xl mx-auto px-4 py-6'}>
+      <main className={isEditor ? '' : 'max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-            <Route path="/sheets" element={<SheetListPage />} />
+          <Route path="/sheets" element={<SheetListPage />} />
           <Route path="/sheet/:id" element={<SheetEditor />} />
           <Route path="/valuation" element={<ValuationPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />

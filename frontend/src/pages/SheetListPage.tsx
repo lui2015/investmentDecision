@@ -25,35 +25,37 @@ export default function SheetListPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5 animate-fade-in">
+    <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className={`text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>投资决策表</h2>
-        <button onClick={() => setShowCreate(true)} className="t-btn-primary">+ 新建决策表</button>
+        <h2 className={`text-lg sm:text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>投资决策表</h2>
+        <button onClick={() => setShowCreate(true)} className="t-btn-primary text-xs sm:text-sm">+ 新建</button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/* Filters - scrollable on mobile */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
         {[{ k: 'all', l: '全部' }, ...Object.entries(AssetTypeLabel).map(([k, l]) => ({ k, l }))].map(f => (
           <button key={f.k} onClick={() => setFilterType(f.k as typeof filterType)}
-            className={`px-3 py-1.5 rounded-lg text-xs transition-all ${filterType === f.k ? 't-accent-bg' : 't-card hover:t-bg3'}`}
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 ${filterType === f.k ? 't-accent-bg' : 't-card'}`}
             style={filterType === f.k ? {} : { color: 'var(--t-text-secondary)' }}>
             {f.l}
           </button>
         ))}
-        <div className="w-px" style={{ background: 'var(--t-border)' }} />
+        <div className="w-px flex-shrink-0" style={{ background: 'var(--t-border)' }} />
         {[{ k: 'all', l: '全部状态' }, ...Object.entries(StatusLabel).map(([k, l]) => ({ k, l }))].map(f => (
           <button key={f.k} onClick={() => setFilterStatus(f.k as typeof filterStatus)}
-            className={`px-3 py-1.5 rounded-lg text-xs transition-all ${filterStatus === f.k ? 't-accent-light font-medium' : 't-card hover:t-bg3'}`}
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 ${filterStatus === f.k ? 't-accent-light font-medium' : 't-card'}`}
             style={filterStatus === f.k ? {} : { color: 'var(--t-text-secondary)' }}>
             {f.l}
           </button>
         ))}
       </div>
 
+      {/* List */}
       {filtered.length === 0 ? (
-        <div className={`text-center py-20 t-card ${isCyber ? 'glow-border' : ''}`}>
-          <div className="text-4xl mb-4">{isCyber ? '⚡' : '📋'}</div>
-          <h3 className="text-lg font-semibold t-text mb-2">{sheets.length === 0 ? '还没有决策表' : '没有匹配的决策表'}</h3>
-          <p className="text-sm t-muted">先写理由，再下单。如果逻辑无法写清楚，说明还没想清楚。</p>
+        <div className={`text-center py-16 sm:py-20 t-card ${isCyber ? 'glow-border' : ''}`}>
+          <div className="text-3xl sm:text-4xl mb-3">{isCyber ? '⚡' : '📋'}</div>
+          <h3 className="text-base sm:text-lg font-semibold t-text mb-2">{sheets.length === 0 ? '还没有决策表' : '没有匹配的决策表'}</h3>
+          <p className="text-xs sm:text-sm t-muted">先写理由，再下单。</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -61,27 +63,29 @@ export default function SheetListPage() {
             const name = sheet.basicInfo.companyName || sheet.basicInfo.fundName || sheet.basicInfo.bondName || sheet.basicInfo.productName || '未命名';
             const code = sheet.basicInfo.stockCode || sheet.basicInfo.fundCode || sheet.basicInfo.bondCode || sheet.basicInfo.contractCode || '';
             return (
-              <div key={sheet.id} className="t-card t-card-hover p-4">
-                <div className="flex items-center justify-between">
-                  <Link to={`/sheet/${sheet.id}`} className="flex-1 flex items-center gap-3">
-                    <span className="text-xl">{AssetTypeIcon[sheet.assetType]}</span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold t-text">{name}</span>
-                        {code && <span className="text-xs t-muted">{code}</span>}
+              <div key={sheet.id} className="t-card t-card-hover p-3 sm:p-4">
+                <Link to={`/sheet/${sheet.id}`} className="flex items-start sm:items-center justify-between gap-2">
+                  <div className="flex items-start sm:items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                    <span className="text-lg sm:text-xl flex-shrink-0 mt-0.5 sm:mt-0">{AssetTypeIcon[sheet.assetType]}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold t-text text-sm truncate">{name}</span>
+                        {code && <span className="text-[10px] t-muted">{code}</span>}
                       </div>
-                      <div className="text-xs t-muted mt-0.5">
-                        {AssetTypeLabel[sheet.assetType]} · {new Date(sheet.updatedAt).toLocaleDateString('zh-CN')}
-                        {sheet.vetoConclusion === 'failed' && <span className="ml-2 t-danger">⛔ 否决项未通过</span>}
+                      <div className="text-[10px] sm:text-xs t-muted mt-0.5 flex items-center gap-1 flex-wrap">
+                        <span>{AssetTypeLabel[sheet.assetType]}</span>
+                        <span>·</span>
+                        <span>{new Date(sheet.updatedAt).toLocaleDateString('zh-CN')}</span>
+                        {sheet.vetoConclusion === 'failed' && <span className="t-danger">⛔ 否决</span>}
                       </div>
                     </div>
-                  </Link>
-                  <div className="flex items-center gap-3">
-                    {sheet.totalScore > 0 && <span className={`text-sm font-bold ${sheet.totalScore >= 85 ? 't-success' : sheet.totalScore >= 70 ? 't-accent' : 't-danger'}`}>{sheet.totalScore}分</span>}
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${StatusColor[sheet.status]}`}>{StatusLabel[sheet.status]}</span>
-                    <button onClick={(e) => { e.preventDefault(); deleteSheet(sheet.id); }} className="t-muted hover:t-danger text-sm transition-colors">🗑</button>
                   </div>
-                </div>
+                  <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+                    {sheet.totalScore > 0 && <span className={`text-xs sm:text-sm font-bold ${sheet.totalScore >= 85 ? 't-success' : sheet.totalScore >= 70 ? 't-accent' : 't-danger'}`}>{sheet.totalScore}</span>}
+                    <span className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full whitespace-nowrap ${StatusColor[sheet.status]}`}>{StatusLabel[sheet.status]}</span>
+                    <button onClick={(e) => { e.preventDefault(); deleteSheet(sheet.id); }} className="t-muted hover:t-danger text-xs sm:text-sm ml-1">🗑</button>
+                  </div>
+                </Link>
               </div>
             );
           })}
@@ -90,22 +94,22 @@ export default function SheetListPage() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
-          <div className={`t-card p-6 w-full max-w-md animate-fade-in ${isCyber ? 'glow-border' : ''}`} onClick={e => e.stopPropagation()}>
-            <h3 className={`text-lg font-bold t-text mb-4 ${isCyber ? 'glow-text' : ''}`}>选择决策表类型</h3>
-            <div className="grid grid-cols-2 gap-3">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
+          <div className={`t-card p-5 sm:p-6 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl animate-fade-in ${isCyber ? 'glow-border' : ''}`} onClick={e => e.stopPropagation()}>
+            <h3 className={`text-base sm:text-lg font-bold t-text mb-4 ${isCyber ? 'glow-text' : ''}`}>选择决策表类型</h3>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {(['stock', 'fund', 'bond', 'futures'] as const).map(type => (
                 <button key={type} onClick={() => handleCreate(type)}
-                  className="t-card t-card-hover p-4 text-left transition-all">
-                  <div className="text-2xl mb-2">{AssetTypeIcon[type]}</div>
-                  <div className="font-semibold t-text">{AssetTypeLabel[type]}决策表</div>
-                  <div className="text-xs t-muted mt-1">
-                    {type === 'futures' ? '12+1板块 · 10项否决(最严)' : '12板块 · 7项否决'}
+                  className="t-card t-card-hover p-3 sm:p-4 text-left transition-all">
+                  <div className="text-xl sm:text-2xl mb-1.5 sm:mb-2">{AssetTypeIcon[type]}</div>
+                  <div className="font-semibold t-text text-sm">{AssetTypeLabel[type]}</div>
+                  <div className="text-[10px] sm:text-xs t-muted mt-0.5">
+                    {type === 'futures' ? '12+1板块 · 最严' : '12板块'}
                   </div>
-                  {type === 'futures' && <div className="text-xs t-danger mt-1">⚠️ 含强制风险确认</div>}
                 </button>
               ))}
             </div>
+            <button onClick={() => setShowCreate(false)} className="w-full mt-3 t-btn-ghost text-sm">取消</button>
           </div>
         </div>
       )}
