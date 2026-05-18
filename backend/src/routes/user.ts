@@ -12,15 +12,28 @@ router.post('/register', (req: AuthRequest, res: Response) => {
   if (username.length < 3 || password.length < 6) { res.status(400).json({ error: '用户名至少3位，密码至少6位' }); return; }
 
   const db = getDb();
-  const existing = db.exec(`SELECT id FROM users WHERE username = '${username.replace(/'/g, "''")}'`);
-  if (existing.length > 0 && existing[0].values.length > 0) { res.status(409).json({ error: '用户名已存在' }); return; }
+
+  // 检查用户是否已存在
+  const checkStmt = db.prepare(`SELECT id FROM users WHERE username = $username`);
+  checkStmt.bind({ $username: username });
+  if (checkStmt.step()) {
+    checkStmt.free();
+    res.status(409).json({ error: '用户名已存在' });
+    return;
+  }
+  checkStmt.free();
 
   const hash = bcrypt.hashSync(password, 10);
   db.run(`INSERT INTO users (username, password_hash, nickname) VALUES (?, ?, ?)`, [username, hash, nickname || username]);
   saveDb();
 
-  const result = db.exec(`SELECT last_insert_rowid() as id`);
-  const userId = result[0].values[0][0] as number;
+  // 获取新用户ID
+  const idStmt = db.prepare(`SELECT last_insert_rowid() as id`);
+  idStmt.step();
+  const idRow = idStmt.getAsObject();
+  idStmt.free();
+  const userId = idRow.id as number;
+
   const token = signToken({ userId, username });
   res.json({ token, user: { id: userId, username, nickname: nickname || username } });
 });
@@ -31,11 +44,15 @@ router.post('/login', (req: AuthRequest, res: Response) => {
   if (!username || !password) { res.status(400).json({ error: '用户名和密码不能为空' }); return; }
 
   const db = getDb();
-  const result = db.exec(`SELECT id, username, password_hash, nickname FROM users WHERE username = ?`, [username]);
-  if (result.length === 0 || result[0].values.length === 0) { res.status(401).json({ error: '用户名或密码错误' }); return; }
-
-  const row = result[0].values[0];
-  const user = { id: row[0] as number, username: row[1] as string, password_hash: row[2] as string, nickname: row[3] as string };
+  const stmt = db.prepare(`SELECT id, username, password_hash, nickname FROM users WHERE username = $username`);
+  stmt.bind({ $username: username });
+  if (!stmt.step()) {
+    stmt.free();
+    res.status(401).json({ error: '用户名或密码错误' });
+    return;
+  }
+  const user = stmt.getAsObject() as { id: number; username: string; password_hash: string; nickname: string };
+  stmt.free();
 
   if (!bcrypt.compareSync(password, user.password_hash)) { res.status(401).json({ error: '用户名或密码错误' }); return; }
 
@@ -46,10 +63,12 @@ router.post('/login', (req: AuthRequest, res: Response) => {
 // 获取当前用户信息
 router.get('/me', authMiddleware, (req: AuthRequest, res: Response) => {
   const db = getDb();
-  const result = db.exec(`SELECT id, username, nickname, created_at FROM users WHERE id = ?`, [req.user!.userId]);
-  if (result.length === 0 || result[0].values.length === 0) { res.status(404).json({ error: '用户不存在' }); return; }
-  const row = result[0].values[0];
-  res.json({ id: row[0], username: row[1], nickname: row[2], created_at: row[3] });
+  const stmt = db.prepare(`SELECT id, username, nickname, created_at FROM users WHERE id = $id`);
+  stmt.bind({ $id: req.user!.userId });
+  if (!stmt.step()) { stmt.free(); res.status(404).json({ error: '用户不存在' }); return; }
+  const row = stmt.getAsObject();
+  stmt.free();
+  res.json(row);
 });
 
 export default router;
