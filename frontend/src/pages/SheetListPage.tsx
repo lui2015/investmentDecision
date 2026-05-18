@@ -76,6 +76,7 @@ export default function SheetListPage() {
                         {code && <span className="text-[10px] t-muted">{code}</span>}
                       </div>
                       <div className="text-[10px] sm:text-xs t-muted mt-0.5 flex items-center gap-1 flex-wrap">
+                        {sheet.isQuick && <span className="px-1 py-0.5 rounded text-[9px] font-bold" style={{ background: 'var(--t-accent-light)', color: 'var(--t-accent-text)' }}>⚡快速</span>}
                         <span>{AssetTypeLabel[sheet.assetType]}</span>
                         <span>·</span>
                         <span>{new Date(sheet.updatedAt).toLocaleDateString('zh-CN')}</span>

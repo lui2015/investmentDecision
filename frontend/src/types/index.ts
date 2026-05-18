@@ -74,6 +74,9 @@ export interface DecisionSheet {
   createdAt: string;
   updatedAt: string;
   currentStep: number;
+  isQuick?: boolean; // 是否为快速决策表
+  quickScore?: number; // 快速决策得分
+  quickAnswers?: number[]; // 快速决策各题得分
 
   // 板块〇（期货专属）
   futuresRiskConfirm: boolean[];

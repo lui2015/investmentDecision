@@ -66,7 +66,7 @@ export default function HomePage() {
       {/* 4 asset cards - 2x2 on mobile */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {(['stock', 'fund', 'bond', 'futures'] as const).map(type => (
-          <button key={type} onClick={() => navigate('/sheets')}
+          <button key={type} onClick={() => navigate(`/quick?type=${type}`)}
             className={`t-card t-card-hover p-3 sm:p-5 text-left transition-all ${isCyber ? 'glow-pulse' : ''}`}>
             <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
               <span className="text-lg sm:text-2xl">{AssetTypeIcon[type]}</span>
