@@ -13,15 +13,13 @@ export default function SheetListPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | DecisionStatus>('all');
 
-  // 从URL读取资产类型：有type参数则锁定类型（从首页进入）；无type参数则显示全部（从导航TAB进入）
+  // 从URL读取type参数作为默认选中项：有type则默认选中对应类型，无则默认"全部"
   const urlType = searchParams.get('type') as AssetType | null;
-  const isFixedType = urlType && ['stock', 'fund', 'bond', 'futures'].includes(urlType);
-  const [filterType, setFilterType] = useState<'all' | AssetType>(isFixedType ? urlType! : 'all');
-
-  const currentType = isFixedType ? urlType! : filterType;
+  const defaultType: 'all' | AssetType = urlType && ['stock', 'fund', 'bond', 'futures'].includes(urlType) ? urlType : 'all';
+  const [filterType, setFilterType] = useState<'all' | AssetType>(defaultType);
 
   const filtered = sheets.filter(s =>
-    (currentType === 'all' || s.assetType === currentType) &&
+    (filterType === 'all' || s.assetType === filterType) &&
     (filterStatus === 'all' || s.status === filterStatus)
   );
 
@@ -31,18 +29,13 @@ export default function SheetListPage() {
     navigate(`/sheet/${sheet.id}`);
   };
 
-  // 快速决策带上当前类型
-  const quickType = currentType !== 'all' ? currentType : '';
+  // 快速决策带上当前筛选类型
+  const quickType = filterType !== 'all' ? filterType : '';
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {isFixedType && <span className="text-xl sm:text-2xl">{AssetTypeIcon[urlType!]}</span>}
-          <h2 className={`text-lg sm:text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>
-            {isFixedType ? `${AssetTypeLabel[urlType!]}决策表` : '投资决策表'}
-          </h2>
-        </div>
+        <h2 className={`text-lg sm:text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>投资决策表</h2>
         <div className="flex items-center gap-2">
           <Link to={`/quick${quickType ? `?type=${quickType}` : ''}`} className="t-btn-primary text-xs sm:text-sm">⚡ 快速决策</Link>
           <button onClick={() => setShowCreate(true)} className="t-btn-primary text-xs sm:text-sm">+ 新建</button>
@@ -51,20 +44,14 @@ export default function SheetListPage() {
 
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-        {/* 资产类型筛选：仅在非锁定模式下显示 */}
-        {!isFixedType && (
-          <>
-            {[{ k: 'all', l: '全部' }, ...Object.entries(AssetTypeLabel).map(([k, l]) => ({ k, l }))].map(f => (
-              <button key={f.k} onClick={() => setFilterType(f.k as typeof filterType)}
-                className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 ${filterType === f.k ? 't-accent-bg' : 't-card'}`}
-                style={filterType === f.k ? {} : { color: 'var(--t-text-secondary)' }}>
-                {f.l}
-              </button>
-            ))}
-            <div className="w-px flex-shrink-0" style={{ background: 'var(--t-border)' }} />
-          </>
-        )}
-        {/* 状态筛选 */}
+        {[{ k: 'all', l: '全部' }, ...Object.entries(AssetTypeLabel).map(([k, l]) => ({ k, l }))].map(f => (
+          <button key={f.k} onClick={() => setFilterType(f.k as typeof filterType)}
+            className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 ${filterType === f.k ? 't-accent-bg' : 't-card'}`}
+            style={filterType === f.k ? {} : { color: 'var(--t-text-secondary)' }}>
+            {f.l}
+          </button>
+        ))}
+        <div className="w-px flex-shrink-0" style={{ background: 'var(--t-border)' }} />
         {[{ k: 'all', l: '全部状态' }, ...Object.entries(StatusLabel).map(([k, l]) => ({ k, l }))].map(f => (
           <button key={f.k} onClick={() => setFilterStatus(f.k as typeof filterStatus)}
             className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs whitespace-nowrap transition-all flex-shrink-0 ${filterStatus === f.k ? 't-accent-light font-medium' : 't-card'}`}
@@ -78,9 +65,7 @@ export default function SheetListPage() {
       {filtered.length === 0 ? (
         <div className={`text-center py-16 sm:py-20 t-card ${isCyber ? 'glow-border' : ''}`}>
           <div className="text-3xl sm:text-4xl mb-3">{isCyber ? '⚡' : '📋'}</div>
-          <h3 className="text-base sm:text-lg font-semibold t-text mb-2">
-            {sheets.length === 0 ? '还没有决策表' : isFixedType ? `还没有${AssetTypeLabel[urlType!]}决策表` : '没有匹配的决策表'}
-          </h3>
+          <h3 className="text-base sm:text-lg font-semibold t-text mb-2">{sheets.length === 0 ? '还没有决策表' : '没有匹配的决策表'}</h3>
           <p className="text-xs sm:text-sm t-muted">先写理由，再下单。</p>
         </div>
       ) : (
@@ -100,8 +85,8 @@ export default function SheetListPage() {
                       </div>
                       <div className="text-[10px] sm:text-xs t-muted mt-0.5 flex items-center gap-1 flex-wrap">
                         {sheet.isQuick && <span className="px-1 py-0.5 rounded text-[9px] font-bold" style={{ background: 'var(--t-accent-light)', color: 'var(--t-accent-text)' }}>⚡快速</span>}
-                        {!isFixedType && <span>{AssetTypeLabel[sheet.assetType]}</span>}
-                        {!isFixedType && <span>·</span>}
+                        <span>{AssetTypeLabel[sheet.assetType]}</span>
+                        <span>·</span>
                         <span>{new Date(sheet.updatedAt).toLocaleDateString('zh-CN')}</span>
                         {sheet.vetoConclusion === 'failed' && <span className="t-danger">⛔ 否决</span>}
                       </div>
@@ -124,31 +109,19 @@ export default function SheetListPage() {
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCreate(false)}>
           <div className={`t-card p-5 sm:p-6 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl animate-fade-in ${isCyber ? 'glow-border' : ''}`} onClick={e => e.stopPropagation()}>
             <h3 className={`text-base sm:text-lg font-bold t-text mb-4 ${isCyber ? 'glow-text' : ''}`}>选择决策表类型</h3>
-            {isFixedType ? (
-              /* 锁定类型时直接创建 */
-              <div>
-                <p className="text-sm t-muted mb-4">将创建一份{AssetTypeLabel[urlType!]}决策表（{urlType === 'futures' ? '12+1' : '12'}个板块）</p>
-                <div className="flex gap-2">
-                  <button onClick={() => setShowCreate(false)} className="flex-1 t-btn-ghost text-sm">取消</button>
-                  <button onClick={() => handleCreate(urlType!)} className="flex-1 t-btn-primary text-sm">确认创建</button>
-                </div>
-              </div>
-            ) : (
-              /* 全部列表时选类型 */
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                {(['stock', 'fund', 'bond', 'futures'] as const).map(type => (
-                  <button key={type} onClick={() => handleCreate(type)}
-                    className="t-card t-card-hover p-3 sm:p-4 text-left transition-all">
-                    <div className="text-xl sm:text-2xl mb-1.5 sm:mb-2">{AssetTypeIcon[type]}</div>
-                    <div className="font-semibold t-text text-sm">{AssetTypeLabel[type]}</div>
-                    <div className="text-[10px] sm:text-xs t-muted mt-0.5">
-                      {type === 'futures' ? '12+1板块 · 最严' : '12板块'}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            {!isFixedType && <button onClick={() => setShowCreate(false)} className="w-full mt-3 t-btn-ghost text-sm">取消</button>}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              {(['stock', 'fund', 'bond', 'futures'] as const).map(type => (
+                <button key={type} onClick={() => handleCreate(type)}
+                  className="t-card t-card-hover p-3 sm:p-4 text-left transition-all">
+                  <div className="text-xl sm:text-2xl mb-1.5 sm:mb-2">{AssetTypeIcon[type]}</div>
+                  <div className="font-semibold t-text text-sm">{AssetTypeLabel[type]}</div>
+                  <div className="text-[10px] sm:text-xs t-muted mt-0.5">
+                    {type === 'futures' ? '12+1板块 · 最严' : '12板块'}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setShowCreate(false)} className="w-full mt-3 t-btn-ghost text-sm">取消</button>
           </div>
         </div>
       )}
