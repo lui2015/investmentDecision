@@ -5,6 +5,7 @@ import SheetListPage from './pages/SheetListPage';
 import SheetEditor from './pages/SheetEditor';
 import ValuationPage from './pages/ValuationPage';
 import KnowledgePage from './pages/KnowledgePage';
+import QuickDecisionPage from './pages/QuickDecisionPage';
 import { useThemeStore, applyTheme, themes } from './store/theme';
 
 const navItems = [
@@ -120,8 +121,9 @@ export default function App() {
       <main className={isEditor ? '' : 'max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/sheets" element={<SheetListPage />} />
+            <Route path="/sheets" element={<SheetListPage />} />
           <Route path="/sheet/:id" element={<SheetEditor />} />
+          <Route path="/quick" element={<QuickDecisionPage />} />
           <Route path="/valuation" element={<ValuationPage />} />
           <Route path="/knowledge" element={<KnowledgePage />} />
         </Routes>

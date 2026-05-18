@@ -28,7 +28,10 @@ export default function SheetListPage() {
     <div className="max-w-4xl mx-auto space-y-4 sm:space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className={`text-lg sm:text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>投资决策表</h2>
-        <button onClick={() => setShowCreate(true)} className="t-btn-primary text-xs sm:text-sm">+ 新建</button>
+        <div className="flex items-center gap-2">
+          <Link to="/quick" className="t-btn-ghost text-xs sm:text-sm border t-border rounded-lg">⚡ 快速决策</Link>
+          <button onClick={() => setShowCreate(true)} className="t-btn-primary text-xs sm:text-sm">+ 新建</button>
+        </div>
       </div>
 
       {/* Filters - scrollable on mobile */}
