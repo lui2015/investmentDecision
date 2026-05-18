@@ -6,7 +6,10 @@ import SheetEditor from './pages/SheetEditor';
 import ValuationPage from './pages/ValuationPage';
 import KnowledgePage from './pages/KnowledgePage';
 import QuickDecisionPage from './pages/QuickDecisionPage';
+import LoginPage from './pages/LoginPage';
 import { useThemeStore, applyTheme, themes } from './store/theme';
+import { useAuthStore } from './store/auth';
+import { useSheetStore } from './store';
 
 const navItems = [
   { path: '/', label: '总览', icon: '📊' },
@@ -19,18 +22,37 @@ export default function App() {
   const location = useLocation();
   const isEditor = location.pathname.startsWith('/sheet/');
   const { themeId, setTheme } = useThemeStore();
+  const { token, user, logout } = useAuthStore();
+  const syncFromServer = useSheetStore(s => s.syncFromServer);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     applyTheme(themeId);
     document.documentElement.setAttribute('data-theme', themeId);
   }, [themeId]);
 
+  // 登录后从服务器同步数据
+  useEffect(() => {
+    if (token) {
+      syncFromServer();
+    }
+  }, [token, syncFromServer]);
+
   // 路由变化时关闭菜单
   useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
   const currentTheme = themes.find(t => t.id === themeId)!;
+
+  // 未登录显示登录页
+  if (!token) {
+    return (
+      <div className="min-h-screen t-bg transition-colors duration-300">
+        <LoginPage />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen t-bg transition-colors duration-300">
@@ -58,6 +80,31 @@ export default function App() {
               </nav>
 
               <div className="flex items-center gap-1">
+                {/* User menu */}
+                <div className="relative">
+                  <button onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg t-nav-text opacity-80 hover:opacity-100 hover:bg-white/10 text-sm transition-all">
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs" style={{ background: 'var(--t-accent-light)' }}>
+                      {(user?.nickname || user?.username || '?')[0].toUpperCase()}
+                    </span>
+                    <span className="hidden sm:inline text-xs">{user?.nickname || user?.username}</span>
+                  </button>
+                  {showUserMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-50 t-card p-2 min-w-36 animate-fade-in">
+                        <div className="px-3 py-2 text-xs t-muted border-b" style={{ borderColor: 'var(--t-border)' }}>
+                          👤 {user?.nickname || user?.username}
+                        </div>
+                        <button onClick={() => { logout(); setShowUserMenu(false); }}
+                          className="w-full text-left px-3 py-2 rounded-lg text-sm t-text2 hover:t-bg3 transition-all mt-1">
+                          退出登录
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
                 {/* Theme Switcher */}
                 <div className="relative">
                   <button onClick={() => setShowThemePicker(!showThemePicker)}
@@ -111,6 +158,10 @@ export default function App() {
                     <span>{item.icon}</span><span>{item.label}</span>
                   </NavLink>
                 ))}
+                <button onClick={logout}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm t-nav-text opacity-80 w-full text-left">
+                  <span>🚪</span><span>退出登录</span>
+                </button>
               </div>
             </div>
           )}
@@ -121,7 +172,7 @@ export default function App() {
       <main className={isEditor ? '' : 'max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6'}>
         <Routes>
           <Route path="/" element={<HomePage />} />
-            <Route path="/sheets" element={<SheetListPage />} />
+          <Route path="/sheets" element={<SheetListPage />} />
           <Route path="/sheet/:id" element={<SheetEditor />} />
           <Route path="/quick" element={<QuickDecisionPage />} />
           <Route path="/valuation" element={<ValuationPage />} />
