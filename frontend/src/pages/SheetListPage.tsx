@@ -29,7 +29,7 @@ export default function SheetListPage() {
       <div className="flex items-center justify-between">
         <h2 className={`text-lg sm:text-xl font-bold t-text ${isCyber ? 'glow-text' : ''}`}>投资决策表</h2>
         <div className="flex items-center gap-2">
-          <Link to="/quick" className="t-btn-primary text-xs sm:text-sm">⚡ 快速决策</Link>
+          <Link to={`/quick${filterType !== 'all' ? `?type=${filterType}` : ''}`} className="t-btn-primary text-xs sm:text-sm">⚡ 快速决策</Link>
           <button onClick={() => setShowCreate(true)} className="t-btn-primary text-xs sm:text-sm">+ 新建</button>
         </div>
       </div>
