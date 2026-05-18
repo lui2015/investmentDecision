@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { useSheetStore } from '../store';
 import { AssetTypeLabel, AssetTypeIcon, StatusLabel, StatusColor } from '../types';
@@ -10,7 +10,6 @@ const QUOTES_MORE_URL = 'http://www.luliming.xyz/investmentQuotes';
 
 export default function HomePage() {
   const sheets = useSheetStore(s => s.sheets);
-  const navigate = useNavigate();
   const { themeId } = useThemeStore();
   const isCyber = themeId === 'cyberpunk';
   const [quoteOffset, setQuoteOffset] = useState(0);
@@ -66,15 +65,15 @@ export default function HomePage() {
       {/* 4 asset cards - 2x2 on mobile */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {(['stock', 'fund', 'bond', 'futures'] as const).map(type => (
-          <button key={type} onClick={() => navigate(`/sheets?type=${type}`)}
-            className={`t-card t-card-hover p-3 sm:p-5 text-left transition-all ${isCyber ? 'glow-pulse' : ''}`}>
+          <a key={type} href={`${import.meta.env.BASE_URL}sheets?type=${type}`} target="_blank" rel="noopener noreferrer"
+            className={`t-card t-card-hover p-3 sm:p-5 text-left transition-all ${isCyber ? 'glow-pulse' : ''} block`}>
             <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
               <span className="text-lg sm:text-2xl">{AssetTypeIcon[type]}</span>
               <span className="text-xs sm:text-sm font-semibold t-text">{AssetTypeLabel[type]}</span>
             </div>
             <div className="text-2xl sm:text-3xl font-bold t-accent">{stats.byType[type]}</div>
             <div className="text-[10px] sm:text-xs t-muted mt-0.5 sm:mt-1">已创建</div>
-          </button>
+          </a>
         ))}
       </div>
 
