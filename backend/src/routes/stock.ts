@@ -1,153 +1,233 @@
-import { Router, Request, Response } from 'express';
-
-// ===== 股票行情代理（服务器端请求东方财富，规避浏览器 JSONP / 客户端 IP 限制）=====
-// 说明：东财行情接口对部分客户端网络返回空，但服务器端请求稳定；
-// 统一由后端代理，前端只调用自身 API，避免 CORS / CSP / referer 等问题。
+import { Router, type Request, type Response } from 'express';
 
 const router = Router();
 
-const EM_HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
-  Referer: 'https://quote.eastmoney.com/',
-};
+// ===== 工具函数 =====
 
-/** 带超时的 fetch */
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<globalThis.Response> {
+// 东方财富 secid 推断：6 开头沪市(1.)，0/3 开头深市(0.)，5 位数字港股(116.)
+function guessSecid(code: string): string {
+  const c = code.trim();
+  if (/^\d{5}$/.test(c)) return `116.${c}`;
+  if (/^6/.test(c)) return `1.${c}`;
+  return `0.${c}`;
+}
+
+// 还原 \uXXXX 形式的 unicode 转义为真实字符
+function decodeUnicodeEscapes(s: string): string {
+  return s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h: string) =>
+    String.fromCharCode(parseInt(h, 16)),
+  );
+}
+
+// 通用带超时的 fetch（extraHeaders 可覆盖默认 Referer 等）
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs = 6000,
+  extraHeaders: Record<string, string> = {},
+): Promise<globalThis.Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { headers: EM_HEADERS, signal: controller.signal });
+    return await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        Referer: 'https://quote.eastmoney.com/',
+        ...extraHeaders,
+      },
+    });
   } finally {
     clearTimeout(timer);
   }
 }
 
-/** 将 \uXXXX 字面转义序列还原为真实字符（腾讯 smartbox 的中文以此形式返回） */
-function decodeUnicodeEscapes(s: string): string {
-  return s.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));
-}
-
-/**
- * 根据股票代码推断东方财富 secid：
- * - 6 位 A 股：6/9 开头 → 沪市(1)，其余 → 深市(0)
- * - 5 位港股 → 116
- */
-function resolveSecId(rawCode: string): string | null {
-  const code = rawCode.trim().toUpperCase();
-  if (/^\d{6}$/.test(code)) {
-    const head = code[0];
-    const market = head === '6' || head === '9' ? 1 : 0;
-    return `${market}.${code}`;
+// ===== 行情查询 =====
+router.get('/quote', async (req: Request, res: Response) => {
+  const code = String(req.query.code || '').trim();
+  if (!/^\d{5,6}$/.test(code)) {
+    return res.status(400).json({ error: '无法识别的股票代码' });
   }
-  if (/^\d{5}$/.test(code)) {
-    return `116.${code}`;
-  }
-  return null;
-}
-
-// GET /api/stock/search?kw=茅台
-// 使用腾讯 smartbox 搜索（GBK 编码），东财搜索域名在该服务器网络被拦截，故改用腾讯源。
-router.get('/search', async (req: Request, res: Response) => {
-  const kw = String(req.query.kw ?? '').trim();
-  // 输入校验：限制长度，防止异常输入
-  if (!kw || kw.length > 32) {
-    return res.json([]);
-  }
+  const secid = guessSecid(code);
+  const fields = 'f43,f57,f58,f84,f85,f107,f116,f117,f162,f167,f127,f100';
+  const url = `https://push2delay.eastmoney.com/api/qt/stock/get?secid=${secid}&fields=${fields}&fltt=2&invt=2`;
   try {
-    const url = `https://smartbox.gtimg.cn/s3/?q=${encodeURIComponent(kw)}&t=all`;
-    const resp = await fetchWithTimeout(url);
-    const buf = Buffer.from(await resp.arrayBuffer());
-    // 腾讯返回 GBK 编码：v_hint="市场~代码~名称~拼音~类型^..."
-    const text = new TextDecoder('gbk').decode(buf);
-    const m = text.match(/"([\s\S]*)"/);
-    const body = m ? m[1] : '';
-    if (!body) return res.json([]);
-
-    const marketNameMap: Record<string, string> = { sh: '沪', sz: '深', hk: '港股', us: '美股' };
-    // 排除基金 / ETF / 指数等非个股类型
-    const excludeTypes = new Set(['ETF', 'LOF', 'FJ', 'ZS', 'REIT', 'QZ', 'WACC', 'FB']);
-
-    const results = body
-      .split('^')
-      .map(item => item.split('~'))
-      .filter(p => p.length >= 5)
-      .map(p => {
-        const [mkt, code, name, pinyin, type] = p;
-        return { mkt, code, name, pinyin, type };
-      })
-      .filter(r => r.code && r.name && !excludeTypes.has(r.type))
-      // 仅保留 A 股 / 港股个股（quote 支持数字代码；美股代码非数字，暂不支持）
-      .filter(r => (r.mkt === 'sh' || r.mkt === 'sz' || r.mkt === 'hk') && /^\d{5,6}$/.test(r.code))
-      .map(r => {
-        const mktLabel = marketNameMap[r.mkt] || r.mkt;
-        // A 股补充 A/B 标识
-        const marketName =
-          r.mkt === 'sh' || r.mkt === 'sz' ? `${mktLabel}${r.type === 'GP-A' ? 'A' : ''}` : mktLabel;
-        return {
-          code: r.code,
-          name: decodeUnicodeEscapes(r.name),
-          secid: `${r.mkt}${r.code}`,
-          marketName,
-          pinyin: r.pinyin || '',
-        };
-      });
-    res.json(results);
+    const r = await fetchWithTimeout(url);
+    const json: any = await r.json();
+    const d = json?.data;
+    if (!d) return res.status(404).json({ error: '未查询到该股票' });
+    const price = Number(d.f43);
+    const marketCap = Number(d.f116);
+    res.json({
+      code,
+      name: d.f58,
+      industry: d.f100 || d.f127 || '',
+      price: Number.isFinite(price) ? price : 0,
+      marketCap: Number.isFinite(marketCap) ? marketCap : 0,
+      circMarketCap: Number(d.f117) || 0,
+      peTtm: Number(d.f162) || 0,
+      pb: Number(d.f167) || 0,
+      market: Number(d.f107) || 0,
+    });
   } catch {
-    res.status(502).json({ error: '行情搜索服务暂时不可用' });
+    res.status(502).json({ error: '行情接口请求失败' });
   }
 });
 
-// GET /api/stock/quote?code=600519
-router.get('/quote', async (req: Request, res: Response) => {
-  const code = String(req.query.code ?? '').trim();
-  // 输入校验：仅允许 5-6 位数字，防止 SSRF / 异常输入
-  if (!/^\d{5,6}$/.test(code)) {
-    return res.status(400).json({ error: '无法识别的股票代码（支持 6 位 A 股 / 5 位港股）' });
+// ===== 股票搜索 =====
+// 使用新浪 suggest 接口（部分服务器网络下腾讯 smartbox 会返回空）。
+// 返回格式：var suggestvalue="名称,type,纯代码,带前缀代码,全称,,全称,99,1,...;下一条...";
+// 记录以 ; 分隔，字段以 , 分隔；中文为原始 GBK。
+// type: 11=沪深A股（parts[3] 形如 sh600519/sz002594），31=港股（parts[3] 无前缀，如 00700）。
+router.get('/search', async (req: Request, res: Response) => {
+  const kw = String(req.query.kw || '').trim();
+  if (!kw) return res.json([]);
+  const url = `https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15,31,33&key=${encodeURIComponent(
+    kw,
+  )}`;
+  try {
+    const r = await fetchWithTimeout(url, 6000, {
+      Referer: 'https://finance.sina.com.cn/',
+    });
+    const buf = await r.arrayBuffer();
+    // 响应为 GBK 编码；若出现 \uXXXX 转义再兜底反转义
+    let text = new TextDecoder('gbk').decode(buf);
+    text = decodeUnicodeEscapes(text);
+    const m = text.match(/="([^"]*)"/);
+    if (!m || !m[1]) return res.json([]);
+    const items = m[1].split(';').filter(Boolean);
+    const results = items.map((item) => {
+      const parts = item.split(',');
+      const name = parts[0] || '';
+      const type = parts[1] || '';
+      const code = parts[2] || ''; // 纯数字代码
+      const prefixed = parts[3] || ''; // sh600519 / sz002594 / 00700
+      let marketName = '';
+      let secid = '';
+      if (type === '11') {
+        if (prefixed.startsWith('sh')) {
+          marketName = '沪A';
+          secid = `1.${code}`;
+        } else if (prefixed.startsWith('sz')) {
+          marketName = '深A';
+          secid = `0.${code}`;
+        } else if (/^6/.test(code)) {
+          marketName = '沪A';
+          secid = `1.${code}`;
+        } else {
+          marketName = '深A';
+          secid = `0.${code}`;
+        }
+      } else if (type === '31') {
+        marketName = '港股';
+        secid = `116.${code}`;
+      }
+      return { code, name, secid, marketName, pinyin: '' };
+    });
+    const filtered = results.filter(
+      (x) =>
+        /^\d{5,6}$/.test(x.code) &&
+        ['沪A', '深A', '港股'].includes(x.marketName) &&
+        // 过滤港股人民币柜台/临时 R 股（8xxxx），行情接口通常无法查询
+        !(x.marketName === '港股' && x.code.startsWith('8')),
+    );
+    const seen = new Set<string>();
+    const dedup = filtered.filter((x) => {
+      if (seen.has(x.secid)) return false;
+      seen.add(x.secid);
+      return true;
+    });
+    res.json(dedup.slice(0, 12));
+  } catch {
+    res.json([]);
   }
-  const secid = resolveSecId(code);
-  if (!secid) {
+});
+
+// ===== 财务指标（定量分析自动拉取）=====
+// 数据源：东方财富 F10「主要财务指标」RPT_F10_FINANCE_MAINFINADATA。
+// 仅支持 A 股（沪深）；港股/其他返回 supported=false，由前端提示手动填写。
+// 返回最新一期(latest)与最近若干年报(annual[])，供“当前情况 / 近3年·历史”对照。
+function fmtPct(v: any): string {
+  const n = Number(v);
+  return Number.isFinite(n) ? `${n.toFixed(2)}%` : '';
+}
+function fmtNum(v: any, digits = 2): string {
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits) : '';
+}
+
+router.get('/financials', async (req: Request, res: Response) => {
+  const code = String(req.query.code || '').trim();
+  if (!/^\d{5,6}$/.test(code)) {
     return res.status(400).json({ error: '无法识别的股票代码' });
   }
+  // 仅 A 股支持：6 开头沪(SH)，0/3 开头深(SZ)；其余（港股 5 位等）不支持
+  let suffix = '';
+  if (/^6\d{5}$/.test(code)) suffix = 'SH';
+  else if (/^[03]\d{5}$/.test(code)) suffix = 'SZ';
+  if (!suffix) {
+    return res.json({ supported: false, code, latest: null, annual: [] });
+  }
+  const secucode = `${code}.${suffix}`;
+  const columns = [
+    'SECURITY_NAME_ABBR',
+    'REPORT_DATE',
+    'REPORT_TYPE',
+    'REPORT_DATE_NAME',
+    'TOTALOPERATEREVETZ', // 营收同比增长
+    'PARENTNETPROFITTZ', // 归母净利润同比增长
+    'ROEJQ', // 加权ROE
+    'ROIC', // ROIC
+    'XSMLL', // 毛利率
+    'XSJLL', // 净利率
+    'MGJYXJJE', // 每股经营现金流
+    'ZCFZL', // 资产负债率
+    'LD', // 流动比率
+    'SD', // 速动比率
+  ].join(',');
+  const url =
+    `https://datacenter.eastmoney.com/securities/api/data/v1/get?reportName=RPT_F10_FINANCE_MAINFINADATA` +
+    `&columns=${columns}` +
+    `&filter=${encodeURIComponent(`(SECUCODE="${secucode}")`)}` +
+    `&pageNumber=1&pageSize=20&sortColumns=REPORT_DATE&sortTypes=-1&source=HSF10&client=PC`;
   try {
-    // fltt=2：返回真实数值（价格/PE/PB 无需再除以 100）
-    // 使用 push2delay 域名（该服务器 IP 下 push2 主域名被限流，delay 域名稳定可用，为延迟行情）
-    // 行业字段：f100 常为空，实际行业名在 f127（如"白酒Ⅱ"）
-    const fields = ['f57', 'f58', 'f43', 'f100', 'f127', 'f107', 'f116', 'f117', 'f162', 'f167'].join(',');
-    const url = `https://push2delay.eastmoney.com/api/qt/stock/get?secid=${secid}&fields=${fields}&invt=2&fltt=2`;
-    const resp = await fetchWithTimeout(url);
-    const raw = (await resp.json()) as {
-      data?: {
-        f57?: string;
-        f58?: string;
-        f43?: number;
-        f100?: string;
-        f127?: string;
-        f107?: number;
-        f116?: number;
-        f117?: number;
-        f162?: number;
-        f167?: number;
-      } | null;
-    };
-    const d = raw?.data;
-    if (!d || !d.f58) {
-      return res.status(404).json({ error: '未查询到该股票，请确认代码是否正确' });
+    const r = await fetchWithTimeout(url, 8000, {
+      Referer: 'https://emweb.securities.eastmoney.com/',
+    });
+    const json: any = await r.json();
+    const rows: any[] = json?.result?.data || [];
+    if (!rows.length) {
+      return res.json({ supported: true, code, latest: null, annual: [] });
     }
-    const num = (v: unknown) => (typeof v === 'number' && isFinite(v) && v > 0 ? v : 0);
+    const mapRow = (d: any) => ({
+      reportDate: d.REPORT_DATE ? String(d.REPORT_DATE).slice(0, 10) : '',
+      reportName: d.REPORT_DATE_NAME || '',
+      reportType: d.REPORT_TYPE || '',
+      revenueGrowth: fmtPct(d.TOTALOPERATEREVETZ),
+      netProfitGrowth: fmtPct(d.PARENTNETPROFITTZ),
+      roe: fmtPct(d.ROEJQ),
+      roic: fmtPct(d.ROIC),
+      grossMargin: fmtPct(d.XSMLL),
+      netMargin: fmtPct(d.XSJLL),
+      opCashPerShare: fmtNum(d.MGJYXJJE),
+      debtRatio: fmtPct(d.ZCFZL),
+      currentRatio: fmtNum(d.LD),
+      quickRatio: fmtNum(d.SD),
+    });
+    const latest = mapRow(rows[0]);
+    const annual = rows
+      .filter((d) => d.REPORT_TYPE === '年报')
+      .slice(0, 3)
+      .map(mapRow);
     res.json({
-      code: d.f57 ?? code,
-      name: d.f58 ?? '',
-      industry: (d.f100 || d.f127 || '').toString(),
-      price: num(d.f43),
-      marketCap: num(d.f116),
-      circMarketCap: num(d.f117),
-      peTtm: num(d.f162),
-      pb: num(d.f167),
-      market: d.f107 ?? 0,
+      supported: true,
+      code,
+      name: rows[0].SECURITY_NAME_ABBR || '',
+      latest,
+      annual,
     });
   } catch {
-    res.status(502).json({ error: '行情服务暂时不可用，请稍后重试' });
+    res.status(502).json({ error: '财务数据接口请求失败' });
   }
 });
 

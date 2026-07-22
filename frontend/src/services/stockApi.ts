@@ -86,3 +86,61 @@ export async function searchStocks(keyword: string): Promise<StockSearchResult[]
     return [];
   }
 }
+
+// ===== 财务指标（定量分析自动拉取）=====
+
+/** 单期财务指标（数值已格式化为带单位的字符串，如 "15.66%"、"49.13"） */
+export interface FinancialPeriod {
+  /** 报告期日期 YYYY-MM-DD */
+  reportDate: string;
+  /** 报告期名称，如 2025年报 / 2026一季报 */
+  reportName: string;
+  /** 报告类型，如 年报 / 一季报 */
+  reportType: string;
+  /** 营收同比增长 */
+  revenueGrowth: string;
+  /** 归母净利润同比增长 */
+  netProfitGrowth: string;
+  /** 加权 ROE */
+  roe: string;
+  /** ROIC */
+  roic: string;
+  /** 毛利率 */
+  grossMargin: string;
+  /** 净利率 */
+  netMargin: string;
+  /** 每股经营现金流 */
+  opCashPerShare: string;
+  /** 资产负债率 */
+  debtRatio: string;
+  /** 流动比率 */
+  currentRatio: string;
+  /** 速动比率 */
+  quickRatio: string;
+}
+
+export interface StockFinancials {
+  /** 是否支持自动拉取（仅 A 股 true；港股等为 false） */
+  supported: boolean;
+  code: string;
+  name?: string;
+  /** 最新一期（可能是季报/年报） */
+  latest: FinancialPeriod | null;
+  /** 最近若干年报，用于“近3年/历史”对照 */
+  annual: FinancialPeriod[];
+}
+
+/**
+ * 拉取股票财务指标（经后端代理）。A 股返回最新期与近年年报；港股等返回 supported=false。
+ */
+export async function fetchStockFinancials(stockCode: string): Promise<StockFinancials | null> {
+  const code = stockCode.trim();
+  if (!/^\d{5,6}$/.test(code)) return null;
+  try {
+    const res = await fetch(`${API_BASE}/stock/financials?code=${encodeURIComponent(code)}`);
+    if (!res.ok) return null;
+    return (await res.json()) as StockFinancials;
+  } catch {
+    return null;
+  }
+}

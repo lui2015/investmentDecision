@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AssetTypeIcon, StatusLabel, StatusColor, type DecisionStatus } from '../types';
 import { STEPS, BASIC_FIELDS, DISCIPLINE, QUICK_QUESTIONS, FUTURES_RISK_CONFIRMS, SCORE_THRESHOLDS } from '../data/templates';
 import { useThemeStore } from '../store/theme';
-import { fetchStockQuote, searchStocks, type StockSearchResult } from '../services/stockApi';
+import { fetchStockQuote, searchStocks, fetchStockFinancials, type StockSearchResult, type FinancialPeriod } from '../services/stockApi';
 
 // 股票自动填充状态
 type AutoFillStatus =
@@ -12,6 +12,25 @@ type AutoFillStatus =
   | { kind: 'loading'; code: string }
   | { kind: 'success'; code: string; name: string; at: number }
   | { kind: 'error'; code: string; message: string };
+
+// 定量财务数据自动拉取状态
+type FinFillStatus =
+  | { kind: 'idle' }
+  | { kind: 'loading'; code: string }
+  | { kind: 'success'; code: string; count: number }
+  | { kind: 'unsupported'; code: string }
+  | { kind: 'error'; code: string; message: string };
+
+// 定量指标 id → 从财务数据某一期取值的映射（仅列有数据源的指标）
+const QUANT_FIN_MAP: Record<string, (p: FinancialPeriod) => string> = {
+  sm1: p => p.revenueGrowth,
+  sm2: p => p.netProfitGrowth,
+  sm3: p => [p.roe ? `ROE ${p.roe}` : '', p.roic ? `ROIC ${p.roic}` : ''].filter(Boolean).join(' / '),
+  sm4: p => p.grossMargin,
+  sm5: p => p.netMargin,
+  sm6: p => (p.opCashPerShare ? `每股 ${p.opCashPerShare}` : ''),
+  sm8: p => p.debtRatio,
+};
 
 export default function SheetEditor() {
   const { id } = useParams<{ id: string }>();
@@ -137,6 +156,55 @@ export default function SheetEditor() {
     save({ basicInfo: info });
     runAutoFill(r.code, { force: true });
   };
+
+  // ===== 定量分析：财务指标自动拉取 =====
+  const [finFill, setFinFill] = useState<FinFillStatus>({ kind: 'idle' });
+  const lastFinCodeRef = useRef<string>('');
+
+  const runFinancialFill = useCallback(async (code: string, opts: { force?: boolean } = {}) => {
+    if (!sheet || sheet.assetType !== 'stock') return;
+    const trimmed = (code || '').trim();
+    if (!/^(\d{6}|\d{5})$/.test(trimmed)) return;
+    if (!opts.force && lastFinCodeRef.current === trimmed) return;
+    lastFinCodeRef.current = trimmed;
+    setFinFill({ kind: 'loading', code: trimmed });
+    try {
+      const fin = await fetchStockFinancials(trimmed);
+      if (!fin) { setFinFill({ kind: 'error', code: trimmed, message: '未获取到财务数据' }); return; }
+      if (!fin.supported) { setFinFill({ kind: 'unsupported', code: trimmed }); return; }
+
+      const metrics = sheet.quantMetrics.map(m => ({ ...m }));
+      let filled = 0;
+      metrics.forEach(m => {
+        const fn = QUANT_FIN_MAP[m.id];
+        if (!fn) return;
+        // 近3年/历史：拼接各年报数据
+        const hist = fin.annual
+          .map(p => { const v = fn(p); return v ? `${p.reportName} ${v}` : ''; })
+          .filter(Boolean)
+          .join('；');
+        // 当前情况：最新一期
+        const cur = fin.latest ? fn(fin.latest) : '';
+        if (hist && (opts.force || !m.historical)) { m.historical = hist; filled++; }
+        if (cur && (opts.force || !m.current)) { m.current = cur; }
+      });
+      save({ quantMetrics: metrics });
+      setFinFill({ kind: 'success', code: trimmed, count: filled });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '拉取失败';
+      setFinFill({ kind: 'error', code: trimmed, message });
+    }
+  }, [sheet, save]);
+
+  // 进入「定量分析」步骤时，若为股票且有代码，自动拉取财务数据
+  const quantStepIdx = sheet?.assetType === 'futures' ? 4 : 3;
+  useEffect(() => {
+    if (!sheet || sheet.assetType !== 'stock') return;
+    if (step !== quantStepIdx) return;
+    const code = sheet.basicInfo.stockCode || '';
+    if (!/^(\d{6}|\d{5})$/.test(code)) return;
+    runFinancialFill(code);
+  }, [step, quantStepIdx, sheet?.id, sheet?.assetType, sheet?.basicInfo.stockCode, runFinancialFill]);
 
   if (!sheet) return <div className="p-8 text-center t-text2">决策表不存在 <Link to="/sheets" className="t-accent underline ml-2">返回列表</Link></div>;
 
@@ -311,9 +379,46 @@ export default function SheetEditor() {
     </div>
   );
 
-  const renderQuantitative = () => (
+  const renderQuantitative = () => {
+    const isStock = sheet.assetType === 'stock';
+    const finCode = sheet.basicInfo.stockCode || '';
+    return (
     <div className="space-y-4">
       <p className="text-sm t-text2">填写硬指标数据，然后综合打分（满分30分）。</p>
+      {isStock && (
+        <div className="p-3 rounded-xl border t-border t-bg2 flex items-start gap-3 text-xs">
+          <span className="text-base leading-none mt-0.5">📊</span>
+          <div className="flex-1 space-y-1">
+            <div className="t-text font-medium">财务数据自动拉取</div>
+            <div className="t-text2">
+              自动从公开财报拉取营收/净利润增长、ROE/ROIC、毛利率、净利率、每股经营现金流、资产负债率等指标，填入「近3年/历史」与「当前情况」。仅 A 股支持，其余指标仍需手动填写。
+            </div>
+            {finFill.kind === 'loading' && (
+              <div className="t-accent flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                正在拉取 {finFill.code} 的财务数据…
+              </div>
+            )}
+            {finFill.kind === 'success' && (
+              <div className="t-success">✓ 已自动填充 {finFill.count} 项财务指标（{finFill.code}）</div>
+            )}
+            {finFill.kind === 'unsupported' && (
+              <div className="t-muted">该股票（{finFill.code}）暂不支持自动拉取，请手动填写。</div>
+            )}
+            {finFill.kind === 'error' && (
+              <div className="t-danger">✗ {finFill.message}（{finFill.code}）</div>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => runFinancialFill(finCode, { force: true })}
+            disabled={!finCode || finFill.kind === 'loading'}
+            className="px-2.5 py-1 rounded-md text-xs t-accent-bg text-white t-accent-bg-hover disabled:opacity-50 flex-shrink-0"
+          >
+            {finFill.kind === 'loading' ? '拉取中…' : '拉取财务数据'}
+          </button>
+        </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm border-collapse">
           <thead><tr className="t-bg3">
@@ -349,7 +454,8 @@ export default function SheetEditor() {
         <span className="text-sm t-muted ml-2">/30</span>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderValuation = () => (
     <div className="space-y-4">
