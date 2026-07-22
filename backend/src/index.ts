@@ -4,6 +4,7 @@ import cors from 'cors';
 import { initDb } from './db.js';
 import userRoutes from './routes/user.js';
 import sheetsRoutes from './routes/sheets.js';
+import stockRoutes from './routes/stock.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001');
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '10mb' }));
 // Routes
 app.use('/api/user', userRoutes);
 app.use('/api/sheets', sheetsRoutes);
+app.use('/api/stock', stockRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
