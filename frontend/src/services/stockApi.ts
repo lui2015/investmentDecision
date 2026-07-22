@@ -131,3 +131,51 @@ export async function fetchStockQuote(stockCode: string): Promise<StockQuote> {
     market: d.f107 ?? 0,
   };
 }
+
+// ===== 按公司名称 / 拼音 / 代码模糊搜索股票 =====
+
+export interface StockSearchResult {
+  /** 6 位股票代码，如 600519 */
+  code: string;
+  /** 股票名称（公司名） */
+  name: string;
+  /** 东方财富 secid，如 1.600519 */
+  secid: string;
+  /** 市场名称，如 沪A / 深A */
+  marketName: string;
+  /** 拼音首字母，用于匹配 */
+  pinyin: string;
+}
+
+interface EastMoneySearchRaw {
+  QuotationCodeTable?: {
+    Data?: Array<{
+      Code?: string;
+      Name?: string;
+      QuoteID?: string;
+      SecurityTypeName?: string;
+      PinYin?: string;
+    }>;
+  };
+}
+
+/**
+ * 按公司名称 / 拼音 / 代码模糊搜索股票。
+ * 基于东方财富搜索接口（JSONP，支持沪深 / 港股 / 部分美股），无需鉴权、绕过 CORS。
+ */
+export async function searchStocks(keyword: string): Promise<StockSearchResult[]> {
+  const kw = keyword.trim();
+  if (!kw) return [];
+  const url = `https://searchapi.eastmoney.com/api/suggest/get?input=${encodeURIComponent(kw)}&type=14&token=D43BF7224E1A7CA5`;
+  const raw = await jsonp<EastMoneySearchRaw>(url);
+  const list = raw?.QuotationCodeTable?.Data ?? [];
+  return list
+    .filter(d => d.Code && d.Name)
+    .map(d => ({
+      code: d.Code as string,
+      name: d.Name as string,
+      secid: d.QuoteID || (d.Code as string),
+      marketName: d.SecurityTypeName || '',
+      pinyin: d.PinYin || '',
+    }));
+}

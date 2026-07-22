@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { AssetTypeIcon, StatusLabel, StatusColor, type DecisionStatus } from '../types';
 import { STEPS, BASIC_FIELDS, DISCIPLINE, QUICK_QUESTIONS, FUTURES_RISK_CONFIRMS, SCORE_THRESHOLDS } from '../data/templates';
 import { useThemeStore } from '../store/theme';
-import { fetchStockQuote } from '../services/stockApi';
+import { fetchStockQuote, searchStocks, type StockSearchResult } from '../services/stockApi';
 
 // 股票自动填充状态
 type AutoFillStatus =
@@ -33,6 +33,14 @@ export default function SheetEditor() {
   const [autoFill, setAutoFill] = useState<AutoFillStatus>({ kind: 'idle' });
   const lastFetchedCodeRef = useRef<string>('');
   const debounceTimerRef = useRef<number | undefined>(undefined);
+
+  // ===== 公司名称 → 搜索股票 → 选中后自动填充 =====
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const lastSearchedNameRef = useRef<string>('');
+  const nameDebounceRef = useRef<number | undefined>(undefined);
 
   const runAutoFill = useCallback(async (code: string, opts: { force?: boolean } = {}) => {
     if (!sheet) return;
@@ -79,6 +87,57 @@ export default function SheetEditor() {
     };
   }, [stockCode, sheet?.id, sheet?.assetType, runAutoFill]);
 
+  // 监听公司名称变化，500ms 防抖后搜索匹配的股票
+  const companyName = sheet?.assetType === 'stock' ? (sheet.basicInfo.companyName || '') : '';
+  useEffect(() => {
+    if (!sheet || sheet.assetType !== 'stock') return;
+    if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
+    if (!companyName) { setSearchResults([]); setSearchOpen(false); return; }
+    if (lastSearchedNameRef.current === companyName) return;
+    nameDebounceRef.current = window.setTimeout(async () => {
+      if (lastSearchedNameRef.current === companyName) return;
+      lastSearchedNameRef.current = companyName;
+      setSearchLoading(true);
+      try {
+        const res = await searchStocks(companyName);
+        setSearchResults(res);
+        setSearchOpen(res.length > 0);
+      } catch {
+        setSearchResults([]);
+        setSearchOpen(false);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 500);
+    return () => {
+      if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
+    };
+  }, [companyName, sheet?.id, sheet?.assetType]);
+
+  // 点击外部关闭搜索下拉
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  // 选中搜索结果：填充公司名与代码，并自动拉取行情
+  const handleSelectStock = (r: StockSearchResult) => {
+    if (!sheet) return;
+    lastSearchedNameRef.current = r.name;
+    setSearchOpen(false);
+    setSearchResults([]);
+    const info = { ...sheet.basicInfo };
+    info.companyName = r.name;
+    info.stockCode = r.code;
+    save({ basicInfo: info });
+    runAutoFill(r.code, { force: true });
+  };
+
   if (!sheet) return <div className="p-8 text-center t-text2">决策表不存在 <Link to="/sheets" className="t-accent underline ml-2">返回列表</Link></div>;
 
   const steps = STEPS[sheet.assetType];
@@ -117,7 +176,7 @@ export default function SheetEditor() {
             <div className="flex-1 space-y-1">
               <div className="t-text font-medium">智能填充已开启</div>
               <div className="t-text2">
-                填写 6 位 A 股代码（或 5 位港股代码）后，将自动拉取公司名称、所属行业、当前股价、市值等信息，你只需专注于评分与判断。
+                在「公司名称」中输入名称、拼音或代码即可搜索；选中后自动拉取股票代码、所属行业、当前股价、市值等信息，你只需专注于评分与判断。也可直接填写股票代码触发自动填充。
               </div>
               {autoFill.kind === 'loading' && (
                 <div className="t-accent flex items-center gap-1.5">
@@ -145,7 +204,40 @@ export default function SheetEditor() {
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:gap-4">
-          {fields.map(f => (
+          {fields.map(f => {
+            // 股票：公司名称字段支持按名称搜索自动补全
+            if (isStock && f.key === 'companyName') {
+              return (
+                <div key={f.key} ref={searchBoxRef} className="relative">
+                  <label className="block text-sm font-medium t-text mb-1">{f.label}{f.required && <span className="t-danger ml-0.5">*</span>}</label>
+                  <input
+                    value={sheet.basicInfo.companyName || ''}
+                    onChange={e => save({ basicInfo: { ...sheet.basicInfo, companyName: e.target.value } })}
+                    onFocus={() => { if (searchResults.length) setSearchOpen(true); }}
+                    placeholder={f.placeholder}
+                    autoComplete="off"
+                    className="t-input w-full"
+                  />
+                  {searchOpen && (
+                    <div className="absolute z-30 mt-1 w-full t-bg2 border t-border rounded-lg shadow-lg max-h-60 overflow-auto">
+                      {searchLoading && <div className="px-3 py-2 text-xs t-text2">搜索中…</div>}
+                      {!searchLoading && searchResults.length === 0 && (
+                        <div className="px-3 py-2 text-xs t-text2">未找到匹配的股票</div>
+                      )}
+                      {searchResults.map(r => (
+                        <button key={r.secid} type="button"
+                          onClick={() => handleSelectStock(r)}
+                          className="w-full text-left px-3 py-2 text-sm t-text hover:t-bg3 flex items-center justify-between gap-2">
+                          <span className="font-medium truncate">{r.name}</span>
+                          <span className="text-xs t-muted flex-shrink-0">{r.code} · {r.marketName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return (
             <div key={f.key} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
               <label className="block text-sm font-medium t-text mb-1">{f.label}{f.required && <span className="t-danger ml-0.5">*</span>}</label>
               {f.type === 'textarea' ? (
@@ -162,7 +254,8 @@ export default function SheetEditor() {
                   placeholder={f.placeholder} className="t-input w-full" />
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
